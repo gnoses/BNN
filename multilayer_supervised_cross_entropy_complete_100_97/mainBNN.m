@@ -14,7 +14,7 @@ load trainData
 bnnModel.NNParam = [];
 bnnModel.NNParam.input_dim = 784;
 bnnModel.NNParam.output_dim = 10;
-bnnModel.NNParam.layer_sizes = [256, bnnModel.NNParam.output_dim];
+bnnModel.NNParam.layer_sizes = [32, bnnModel.NNParam.output_dim];
 bnnModel.NNParam.lambda = 0;
 
 bnnModel.NNParam.activation_fun = 'tanh';
@@ -26,7 +26,7 @@ bnnModel.fullFeatureSize = size(data_train,2);
 bnnModel.sampledFeatureSize = bnnModel.fullFeatureSize / 2;
 bnnModel.NNParam.input_dim = bnnModel.sampledFeatureSize;
 
-if (0)
+if (1)
     tic()    
     nnWeight = TrainNNFull(bnnModel.NNParam, data_train, labels_train);
     fullTrainingTime = toc();
@@ -37,29 +37,34 @@ end
 
 [acc_train, acc_test] = TestFullNN(nnWeight,bnnModel.NNParam, data_train, labels_train, data_test, labels_test);
 
-fprintf('Full MLP train: %f, test: %f ( %f sec)\n', acc_train, acc_test, fullTrainingTime);
+fprintf('Full MLP train: %f, test: %f ( %f min)\n', acc_train, acc_test, fullTrainingTime/60);
 
 % save ()
 bnnModelList = {};
-bnnModel.NNParam.layer_sizes = [128, bnnModel.NNParam.output_dim];
 
-for t=1:1
+for t=1:10
     bnnModel.trees = 5+(3*t);
-    
+
 %     m = 5000;
-    
+
 %     tic()
-    batchRatio = [0.5];
-    for j=1:size(batchRatio)
-        bnnModel.batchRatio = batchRatio(j);
+    for j=1:10
+        bnnModel.batchRatio = 1.0 - (j / 10);
         bnnModel.batchSize = size(data_train,1) * (1 - bnnModel.batchRatio);
-                
-        bnnModel = TrainBoostedNN(bnnModel, data_train,labels_train,data_test, labels_test);
-        
-    %     toc()
-        [bnnModel.acc_train, bnnModel.acc_test] = TestBoostedNN(bnnModel, data_train, labels_train, data_test, labels_test);
-        bnnModelList{end+1} = bnnModel;
-        fprintf('Boosted MLP trees:%d, batchsize:%d, train: %f, test: %f\n', bnnModel.trees, bnnModel.batchSize, bnnModel.acc_train, bnnModel.acc_test);
+        hiddenSizeList = [784 512 256 128 64 32];
+        for k=1:size(hiddenSizeList,2)
+            bnnModel.NNParam.layer_sizes = [hiddenSizeList(k), bnnModel.NNParam.output_dim ];
+            tic();
+            bnnModel = TrainBoostedNN(bnnModel, data_train,labels_train,data_test, labels_test);
+            elapsedTime = toc();
+
+            [bnnModel.acc_train, bnnModel.acc_test] = TestBoostedNN(bnnModel, data_train, labels_train, data_test, labels_test);
+
+            bnnModelList{end+1} = bnnModel;
+
+            fprintf('trees:%.0f,batch:%.0f,hidden:%.0f,train:%f,test:%f ( %f min)\n', ...
+                round(bnnModel.trees), (round(bnnModel.batchSize(1))),round(bnnModel.NNParam.layer_sizes(1)) , bnnModel.acc_train, bnnModel.acc_test, elapsedTime/60);
+        end
     end    
 end
 
